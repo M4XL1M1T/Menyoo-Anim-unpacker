@@ -1,7 +1,5 @@
 # Menyoo-Anim-unpacker
 
-##Important!
-if you dont have winrar installed, install it here r"C:\Program Files\WinRAR\"
 
 Unpack lot of anims and put it in the right format for menyoo
 
@@ -23,6 +21,7 @@ A small Python tool that automatically extracts `.rar`, `.zip` archives, and gen
 ---
 
 ## 🧐 How to Use
+> if you dont have winrar installed, install it here r"C:\Program Files\WinRAR\"
 
 
 1. Download latest Release  
@@ -37,4 +36,4 @@ A small Python tool that automatically extracts `.rar`, `.zip` archives, and gen
 
 ## 💡 Hint
 
-Put your current **FavouriteAnims.xml** in the folder. they will add the new anims there **without replacement of your old anims!** :) 
+Put a copy of **FavouriteAnims.xml** in the folder. they will add the new anims there **without replacement of your old anims!** :) 
