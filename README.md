@@ -31,7 +31,7 @@ A small Python tool that automatically extracts `.rar`, `.zip` archives, and gen
 5. Put your `.ZIP`, `.RAR` or `.YCD` files in there  
 6. Start the **FavouriteAnimCreator.exe** or Python file (if you have Python installed) and start the magic  
 7. Import the `FavouriteAnims.xml` to Grand Theft Auto V\menyooStuff
-8. Put all the files from the folder **Props** to OpenIV > mods\update\x64\dlcpacks\customanims\dlc.rpf\x64\anim\ingame\clip_amb@.rpf\
+8. Put all the files from the folder **Anims** to OpenIV > mods\update\x64\dlcpacks\customanims\dlc.rpf\x64\anim\ingame\clip_amb@.rpf\
 
 
 ## 💡 Hint
