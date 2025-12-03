@@ -2,6 +2,7 @@
 import os
 import re
 import time
+import shutil
 import zipfile
 import rarfile
 from pathlib import Path
@@ -48,9 +49,9 @@ def create_file(target: Path) -> None:
         f.write(XML_CONTENT)
 
 
-def add_anims_to_xml(xml_path: Path, anim_lines: list[str]) -> None:
-    """Add animation lines to FavouriteAnims.xml before </PedAnims>."""
-    if not anim_lines:
+def add_anims_to_xml(xml_path: Path, anim_categories: dict[str, list[str]]) -> None:
+    """Add animation lines to FavouriteAnims.xml before </PedAnims> with category headers."""
+    if not any(anim_categories.values()):
         print("No animations to add.")
         return
     
@@ -58,14 +59,31 @@ def add_anims_to_xml(xml_path: Path, anim_lines: list[str]) -> None:
         with open(xml_path, 'r', encoding='utf-8') as f:
             content = f.read()
         
-        formatted_lines = [f"\t{line}" for line in anim_lines]
+        formatted_lines = []
+        category_names = {
+            'solo': 'SOLO',
+            'solo_female': 'SOLO FEMALE',
+            'solo_male': 'SOLO MALE',
+            'duo': 'DUO',
+            'couple': 'COUPLE'
+        }
+        order = ['solo', 'solo_female', 'solo_male', 'duo', 'couple']
+
+        for category in order:
+            items = anim_categories.get(category, [])
+            if items:
+                formatted_lines.append(f'\t<Anim dict="{category_names[category]}" name="" />')
+                for line in items:
+                    formatted_lines.append(f"\t{line}")
+        
         anim_content = '\n'.join(formatted_lines)
         new_content = content.replace('</PedAnims>', f'{anim_content}\n</PedAnims>')
         
         with open(xml_path, 'w', encoding='utf-8') as f:
             f.write(new_content)
         
-        print(f"Added {len(anim_lines)} animation(s) to {xml_path.name}")
+        total_anims = sum(len(anim_categories.get(k, [])) for k in order)
+        print(f"Added {total_anims} animation(s) to {xml_path.name}")
     except Exception as e:
         print(f"Error updating XML: {e}")
 
@@ -86,7 +104,7 @@ def extract_zip(zip_path: Path, extract_to: Path) -> bool:
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
             zip_ref.extractall(extract_to)
         print(f"Extracted: {zip_path.name} → {extract_to}")
-        time.sleep(0.5)
+        time.sleep(0.2)
         return True
     except Exception as e:
         print(f"Error extracting {zip_path.name}: {e}")
@@ -99,7 +117,7 @@ def extract_rar(rar_path: Path, extract_to: Path) -> bool:
         with rarfile.RarFile(str(rar_path)) as rar_ref:
             rar_ref.extractall(str(extract_to))
         print(f"Extracted: {rar_path.name} → {extract_to}")
-        time.sleep(0.5)
+        time.sleep(0.2)
         return True
     except Exception as e:
         print(f"Error extracting {rar_path.name}: {e}")
@@ -126,11 +144,50 @@ def extract_archives(anims_dir: Path) -> None:
             extract_rar(archive, extract_dir)
 
 
-def search_anim_dicts(search_dir: Path) -> list[str]:
-    """Search for <Anim dict=" in all files recursively and return matching lines."""
+def move_ycd_files(anims_dir: Path, target_dir_name: str = 'anims') -> int:
+    """Move all .ycd files found under `anims_dir` into a folder outside it.
+
+    The target folder is created at the workspace root (cwd) with the
+    name `target_dir_name`. Files with name collisions get a numeric suffix.
+    Returns the number of files moved.
+    """
+    target = Path.cwd() / target_dir_name
+    target.mkdir(parents=True, exist_ok=True)
+    moved = 0
+
+    for ycd in anims_dir.rglob('*.ycd'):
+        if not ycd.is_file():
+            continue
+        try:
+            dest = target / ycd.name
+            if dest.exists():
+                base = ycd.stem
+                ext = ycd.suffix
+                i = 1
+                while (target / f"{base}_{i}{ext}").exists():
+                    i += 1
+                dest = target / f"{base}_{i}{ext}"
+            shutil.move(str(ycd), str(dest))
+            moved += 1
+            print(f"Moved: {ycd} -> {dest}")
+        except Exception as e:
+            print(f"Error moving {ycd}: {e}")
+
+    print(f"Moved {moved} .ycd file(s) to {target}")
+    return moved
+
+
+def search_anim_dicts(search_dir: Path) -> dict[str, list[str]]:
+    """Search for <Anim dict=" in all files recursively and return matching lines categorized."""
     print("\nSearching for animation dictionaries...\n")
     
-    found_lines = []
+    categories = {
+        'solo': [],
+        'solo_female': [],
+        'solo_male': [],
+        'duo': [],
+        'couple': []
+    }
     found_count = 0
     
     for file_path in search_dir.rglob('*'):
@@ -140,10 +197,25 @@ def search_anim_dicts(search_dir: Path) -> list[str]:
                     for line in f:
                         if '<Anim' in line and 'dict=' in line:
                             stripped_line = line.strip()
-                            if stripped_line and stripped_line not in found_lines:
-                                found_lines.append(stripped_line)
-                                print(f"Found: {stripped_line}")
-                                found_count += 1
+                            if stripped_line:
+                                line_lower = stripped_line.lower()
+                                category = None
+                                
+                                if 'couple' in line_lower:
+                                    category = 'couple'
+                                elif 'duo' in line_lower:
+                                    category = 'duo'
+                                elif 'female' in line_lower:
+                                    category = 'solo_female'
+                                elif 'male' in line_lower:
+                                    category = 'solo_male'
+                                else:
+                                    category = 'solo'
+                                
+                                if category and stripped_line not in categories[category]:
+                                    categories[category].append(stripped_line)
+                                    print(f"Found ({category}): {stripped_line}")
+                                    found_count += 1
             except Exception as e:
                 pass
     
@@ -152,7 +224,7 @@ def search_anim_dicts(search_dir: Path) -> list[str]:
     else:
         print(f"\nTotal found: {found_count} animation dictionary entries.")
     
-    return found_lines
+    return categories
 
 
 def main() -> None:
@@ -180,12 +252,15 @@ def main() -> None:
             return
     
     extract_archives(anims_dir)
-    
-    anim_lines = search_anim_dicts(anims_dir)
+
+    # Move all .ycd files out of the packed folder into a workspace sibling folder
+    move_ycd_files(anims_dir, target_dir_name='anims')
+
+    anim_categories = search_anim_dicts(anims_dir)
     
     xml_path = Path.cwd() / 'FavouriteAnims.xml'
-    if anim_lines:
-        add_anims_to_xml(xml_path, anim_lines)
+    if any(anim_categories.values()):
+        add_anims_to_xml(xml_path, anim_categories)
 
 
 if __name__ == '__main__':
